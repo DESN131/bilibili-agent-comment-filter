@@ -25,8 +25,8 @@
   const MIN_BATCH_FOR_SPECIFICITY = 8;
   const DUPLICATE_WINDOW = 24;
   const OWNER_WINDOW = 90;
-  const PANEL_DEFAULT_WIDTH = 260;
-  const PANEL_MIN_WIDTH = 200;
+  const PANEL_DEFAULT_WIDTH = 220;
+  const PANEL_MIN_WIDTH = 168;
   const PANEL_MAX_WIDTH = 720;
   const PANEL_MIN_HEIGHT = 92;
   const PANEL_MAX_HEIGHT = 900;
@@ -1410,10 +1410,18 @@
             max-height: calc(100vh - 32px);
             max-width: calc(100vw - 32px);
             min-height: 92px;
-            min-width: 200px;
+            min-width: 168px;
             overflow: visible;
             position: relative;
-            width: var(--bacf-panel-width, 260px);
+            width: var(--bacf-panel-width, 220px);
+          }
+          .panel.settings-mode {
+            height: min(520px, calc(100vh - 32px)) !important;
+            min-width: min(320px, calc(100vw - 32px));
+            width: min(360px, calc(100vw - 32px)) !important;
+          }
+          .panel.settings-mode .resizer {
+            display: none;
           }
           .header {
             align-items: center;
@@ -1522,6 +1530,7 @@
           .row {
             align-items: center;
             display: flex;
+            flex-wrap: wrap;
             gap: 8px;
             justify-content: space-between;
           }
@@ -1564,6 +1573,15 @@
           .project-link:hover {
             text-decoration: underline;
           }
+          @media (max-width: 480px) {
+            .panel {
+              max-width: calc(100vw - 24px);
+            }
+            .panel.settings-mode {
+              height: min(72vh, 520px) !important;
+              width: calc(100vw - 24px) !important;
+            }
+          }
         </style>
         <div class="panel" tabindex="-1">
           <div class="resizer" title="拖动调整面板大小" aria-hidden="true"></div>
@@ -1582,7 +1600,12 @@
             </div>
             <div class="row">
               <label><input type="checkbox" data-action="enabled" checked> 启用过滤</label>
-              <button class="small-button" type="button" data-action="settings">设置</button>
+              <button
+                class="small-button"
+                type="button"
+                data-action="settings"
+                aria-expanded="false"
+              >设置</button>
             </div>
             <div class="settings">
               <a
@@ -1625,6 +1648,7 @@
       };
 
       let collapsed = false;
+      let settingsOpen = false;
       let resizeState = null;
 
       function setCollapsed(nextCollapsed) {
@@ -1634,6 +1658,21 @@
         elements.panel.setAttribute("aria-expanded", String(!collapsed));
         elements.panel.tabIndex = collapsed ? 0 : -1;
         elements.collapseButton.textContent = collapsed ? "展开" : "收起";
+      }
+
+      function setSettingsOpen(nextOpen) {
+        settingsOpen = Boolean(nextOpen);
+        if (settingsOpen) {
+          setCollapsed(false);
+        }
+        elements.panel.classList.toggle("settings-mode", settingsOpen);
+        elements.settings.classList.toggle("open", settingsOpen);
+        elements.settingsButton.textContent = settingsOpen ? "关闭设置" : "设置";
+        elements.settingsButton.setAttribute("aria-expanded", String(settingsOpen));
+        if (settingsOpen) {
+          elements.textarea.value = state.settings.whitelist.join("\n");
+          elements.positionSelect.value = normalizePanelPosition(state.settings.position);
+        }
       }
 
       const api = {
@@ -1656,6 +1695,7 @@
 
       elements.collapseButton.addEventListener("click", (event) => {
         event.stopPropagation();
+        setSettingsOpen(false);
         setCollapsed(true);
       });
       elements.panel.addEventListener("click", () => {
@@ -1679,9 +1719,7 @@
         scanPage();
       });
       elements.settingsButton.addEventListener("click", () => {
-        elements.settings.classList.toggle("open");
-        elements.textarea.value = state.settings.whitelist.join("\n");
-        elements.positionSelect.value = normalizePanelPosition(state.settings.position);
+        setSettingsOpen(!settingsOpen);
       });
       elements.positionSelect.addEventListener("change", () => {
         state.settings.position = normalizePanelPosition(elements.positionSelect.value);
@@ -1698,7 +1736,7 @@
           ),
         ];
         saveSettings(state.settings);
-        elements.settings.classList.remove("open");
+        setSettingsOpen(false);
         scanPage();
       });
 

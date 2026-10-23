@@ -242,7 +242,7 @@ test("parses light and dark colors for automatic theme detection", () => {
 
 test("clamps persisted panel dimensions", () => {
   assert.equal(normalizePanelWidth(320), 320);
-  assert.equal(normalizePanelWidth(50), 200);
+  assert.equal(normalizePanelWidth(50), 168);
   assert.equal(normalizePanelWidth(9999), 720);
   assert.equal(normalizePanelHeight(240), 240);
   assert.equal(normalizePanelHeight(20), 92);
