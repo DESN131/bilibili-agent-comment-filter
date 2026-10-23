@@ -5,6 +5,8 @@
 // @version      0.1.2
 // @description  Hide repetitive Bilibili comments that look like AI agents reporting videos to their owners.
 // @description:zh-CN  在本地隐藏疑似 Agent 向主人汇报视频的同质化 B 站主评论。
+// @homepageURL  https://github.com/DESN131/bilibili-agent-comment-filter
+// @supportURL   https://github.com/DESN131/bilibili-agent-comment-filter/issues
 // @match        https://www.bilibili.com/video/*
 // @run-at       document-start
 // @grant        GM_getValue
@@ -16,6 +18,7 @@
   "use strict";
 
   const VERSION = "0.1.2";
+  const PROJECT_URL = "https://github.com/DESN131/bilibili-agent-comment-filter";
   const STORAGE_KEY = "bacf.settings.v1";
   const HIDE_SCORE = 9;
   const FOLD_SCORE = 6;
@@ -1553,6 +1556,14 @@
             color: var(--bacf-panel-muted);
             font-size: 11px;
           }
+          .project-link {
+            color: #fb7299;
+            font-size: 11px;
+            text-decoration: none;
+          }
+          .project-link:hover {
+            text-decoration: underline;
+          }
         </style>
         <div class="panel" tabindex="-1">
           <div class="resizer" title="拖动调整面板大小" aria-hidden="true"></div>
@@ -1574,6 +1585,12 @@
               <button class="small-button" type="button" data-action="settings">设置</button>
             </div>
             <div class="settings">
+              <a
+                class="project-link"
+                href="${PROJECT_URL}"
+                target="_blank"
+                rel="noopener noreferrer"
+              >GitHub · bilibili-agent-comment-filter</a>
               <div class="row">
                 <span class="hint">面板位置</span>
                 <select data-action="position">
