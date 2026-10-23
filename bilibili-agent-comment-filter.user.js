@@ -2,7 +2,7 @@
 // @name         Bilibili Agent Comment Filter
 // @name:zh-CN   B站 Agent 评论过滤器
 // @namespace    local.bilibili-agent-comment-filter
-// @version      0.1.2
+// @version      0.2.0
 // @description  Hide repetitive Bilibili comments that look like AI agents reporting videos to their owners.
 // @description:zh-CN  在本地隐藏疑似 Agent 向主人汇报视频的同质化 B 站主评论。
 // @homepageURL  https://github.com/DESN131/bilibili-agent-comment-filter
@@ -17,7 +17,7 @@
 (function () {
   "use strict";
 
-  const VERSION = "0.1.2";
+  const VERSION = "0.2.0";
   const PROJECT_URL = "https://github.com/DESN131/bilibili-agent-comment-filter";
   const STORAGE_KEY = "bacf.settings.v1";
   const HIDE_SCORE = 9;
@@ -1111,14 +1111,15 @@
           display: none;
           font: 11px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
           gap: 6px;
-          width: 100%;
+          max-width: calc(100% - 4px);
+          width: fit-content;
         }
         :host([data-bacf-decision="fold"][data-bacf-reveal="false"]) > .bacf-placeholder {
-          display: flex;
+          display: inline-flex;
         }
         :host([data-bacf-reveal="true"][data-bacf-decision="hide"]) > .bacf-badge,
         :host([data-bacf-reveal="true"][data-bacf-decision="fold"]) > .bacf-badge {
-          display: flex;
+          display: inline-flex;
         }
         .bacf-placeholder {
           background: var(--bg1, #fff);
@@ -1459,6 +1460,7 @@
             background: var(--bacf-control-hover);
           }
           .body {
+            align-content: start;
             border-top: 1px solid var(--bacf-panel-border);
             display: grid;
             flex: 1 1 auto;
@@ -1493,39 +1495,46 @@
             margin-left: 4px;
           }
           .resizer {
+            background: var(--bacf-panel-bg);
+            border: 1px solid var(--bacf-control-border);
+            border-radius: 50%;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.16);
+            box-sizing: border-box;
             height: 16px;
             position: absolute;
             touch-action: none;
-            top: -4px;
+            top: -8px;
             width: 16px;
             z-index: 2;
           }
           .resizer::after {
-            border-left: 2px solid var(--bacf-panel-muted);
-            border-top: 2px solid var(--bacf-panel-muted);
+            background: var(--bacf-panel-muted);
+            border-radius: 50%;
             content: "";
-            height: 7px;
+            height: 6px;
+            left: 4px;
             opacity: 0.55;
             position: absolute;
-            width: 7px;
+            top: 4px;
+            width: 6px;
           }
           :host([data-bacf-position="bottom-right"]) .resizer {
             cursor: nwse-resize;
-            left: -4px;
+            left: -8px;
+            right: auto;
           }
           :host([data-bacf-position="bottom-right"]) .resizer::after {
-            left: 0;
-            top: 0;
+            left: 4px;
+            top: 4px;
           }
           :host([data-bacf-position="bottom-left"]) .resizer {
             cursor: nesw-resize;
-            right: -4px;
+            left: auto;
+            right: -8px;
           }
           :host([data-bacf-position="bottom-left"]) .resizer::after {
-            border-left: 0;
-            border-right: 2px solid var(--bacf-panel-muted);
-            right: 0;
-            top: 0;
+            left: 4px;
+            top: 4px;
           }
           .row {
             align-items: center;
