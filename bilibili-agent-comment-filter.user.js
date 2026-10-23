@@ -35,7 +35,7 @@
     filterSuspected: true,
     panelCollapsed: true,
     whitelist: [],
-    position: "bottom-right",
+    position: "bottom-left",
   });
 
   const PANEL_POSITIONS = new Set(["bottom-right", "bottom-left"]);

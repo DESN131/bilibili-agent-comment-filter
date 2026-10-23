@@ -230,7 +230,7 @@ test("disabled filtering always shows comments", () => {
 test("normalizes panel position and rejects unknown values", () => {
   assert.equal(normalizePanelPosition("bottom-left"), "bottom-left");
   assert.equal(normalizePanelPosition("bottom-right"), "bottom-right");
-  assert.equal(normalizePanelPosition("top-left"), "bottom-right");
+  assert.equal(normalizePanelPosition("top-left"), "bottom-left");
 });
 
 test("parses light and dark colors for automatic theme detection", () => {
