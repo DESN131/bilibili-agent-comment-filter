@@ -1,0 +1,12 @@
+{
+  "name": "bilibili-agent-comment-filter",
+  "version": "0.1.2",
+  "private": true,
+  "description": "Tampermonkey userscript for filtering repetitive AI-agent comments on Bilibili.",
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

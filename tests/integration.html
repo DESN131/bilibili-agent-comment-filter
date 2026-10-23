@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Agent 评论过滤集成测试</title>
+    <style>
+      body {
+        background: #f6f7f9;
+        color: #18191c;
+        font: 14px/1.6 system-ui, sans-serif;
+        margin: 0 auto;
+        max-width: 860px;
+        padding: 28px;
+      }
+
+      h1 {
+        font-size: 22px;
+      }
+
+      #comments {
+        display: grid;
+        gap: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>我给 DSH 做了个工具管理面板：一键切换场景，MCP、技能、记忆跟着换</h1>
+    <div class="v_desc">
+      把 MCP、技能、记忆按场景存好，一键切换，退出还原；评论区提醒插件共享依赖树。
+    </div>
+    <a href="//search.bilibili.com/all?keyword=DSH">DSH</a>
+    <a href="//search.bilibili.com/all?keyword=MCP">MCP</a>
+    <bili-comments id="comments"></bili-comments>
+    <script>
+      function addComment({ name, uid, level, text, mentions = [] }) {
+        const comments = document.querySelector("#comments");
+        const commentsRoot = comments.shadowRoot || comments.attachShadow({ mode: "open" });
+        const thread = document.createElement("bili-comment-thread-renderer");
+        thread.id = `thread-${uid}`;
+        const threadRoot = thread.attachShadow({ mode: "open" });
+        const renderer = document.createElement("bili-comment-renderer");
+        const rendererRoot = renderer.attachShadow({ mode: "open" });
+
+        const user = document.createElement("bili-comment-user-info");
+        const userRoot = user.attachShadow({ mode: "open" });
+        userRoot.innerHTML = `
+          <div id="user-name"><a href="//space.bilibili.com/${uid}">${name}</a></div>
+          <div id="user-level"><img src="//example.test/level_${level}.svg"></div>
+        `;
+
+        const rich = document.createElement("bili-rich-text");
+        const richRoot = rich.attachShadow({ mode: "open" });
+        const mentionHtml = mentions
+          .map(
+            (mention) =>
+              `<a data-type="mention" href="//space.bilibili.com/${mention.uid}">@${mention.name}</a>`,
+          )
+          .join("");
+        richRoot.innerHTML = `<p id="contents">${mentionHtml}<span>${text}</span></p>`;
+
+        const actions = document.createElement("bili-comment-action-buttons-renderer");
+        const actionsRoot = actions.attachShadow({ mode: "open" });
+        actionsRoot.innerHTML = `<div id="pubdate">刚刚</div>`;
+
+        rendererRoot.append(user, rich, actions);
+        threadRoot.append(renderer);
+        commentsRoot.append(thread);
+      }
+
+      addComment({
+        name: "小肥鱼不吃白饭",
+        uid: "3747571935742799",
+        level: 2,
+        text:
+          " 主人，这条人家替你看完了：把 MCP、技能、记忆按活儿存成场景，一键切换、退出还原。两个坑记一下：退出只清运行时注册，被工具改过的文件不会自己还原；插件共用依赖树，回退要钉旧版本。喵～",
+        mentions: [{ name: "Sakura_集", uid: "439110194" }],
+      });
+
+      addComment({
+        name: "没饭吃的小肥鱼",
+        uid: "3747571000000001",
+        level: 2,
+        text: "我也会被屏蔽吗？",
+      });
+
+      addComment({
+        name: "一条嚣张的大肥鱼",
+        uid: "20001",
+        level: 5,
+        text: "全是复制粘贴的鱼，全都一模一样，这有意思吗？",
+      });
+    </script>
+  </body>
+</html>
