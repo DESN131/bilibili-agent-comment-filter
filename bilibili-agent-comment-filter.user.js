@@ -2,7 +2,7 @@
 // @name         Bilibili Agent Comment Filter
 // @name:zh-CN   B站 Agent 评论过滤器
 // @namespace    local.bilibili-agent-comment-filter
-// @version      0.2.0
+// @version      0.3.0
 // @description  Hide repetitive Bilibili comments that look like AI agents reporting videos to their owners.
 // @description:zh-CN  在本地隐藏疑似 Agent 向主人汇报视频的同质化 B 站主评论。
 // @homepageURL  https://github.com/DESN131/bilibili-agent-comment-filter
@@ -17,7 +17,7 @@
 (function () {
   "use strict";
 
-  const VERSION = "0.2.0";
+  const VERSION = "0.3.0";
   const PROJECT_URL = "https://github.com/DESN131/bilibili-agent-comment-filter";
   const STORAGE_KEY = "bacf.settings.v1";
   const HIDE_SCORE = 9;
@@ -25,20 +25,17 @@
   const MIN_BATCH_FOR_SPECIFICITY = 8;
   const DUPLICATE_WINDOW = 24;
   const OWNER_WINDOW = 90;
-  const PANEL_DEFAULT_WIDTH = 220;
-  const PANEL_MIN_WIDTH = 168;
-  const PANEL_MAX_WIDTH = 720;
-  const PANEL_MIN_HEIGHT = 92;
-  const PANEL_MAX_HEIGHT = 900;
+  const PANEL_WIDTH = 260;
+  const PANEL_HEIGHT = 220;
+  const PANEL_SETTINGS_WIDTH = 360;
+  const PANEL_SETTINGS_HEIGHT = 470;
 
   const DEFAULT_SETTINGS = Object.freeze({
     enabled: true,
     showSuspected: false,
-    panelCollapsed: false,
+    panelCollapsed: true,
     whitelist: [],
     position: "bottom-right",
-    panelWidth: PANEL_DEFAULT_WIDTH,
-    panelHeight: null,
   });
 
   const PANEL_POSITIONS = new Set(["bottom-right", "bottom-left"]);
@@ -196,22 +193,6 @@
 
   function normalizePanelPosition(value) {
     return PANEL_POSITIONS.has(value) ? value : DEFAULT_SETTINGS.position;
-  }
-
-  function normalizePanelWidth(value) {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) {
-      return PANEL_DEFAULT_WIDTH;
-    }
-    return Math.round(clamp(numeric, PANEL_MIN_WIDTH, PANEL_MAX_WIDTH));
-  }
-
-  function normalizePanelHeight(value) {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric) || numeric <= 0) {
-      return null;
-    }
-    return Math.round(clamp(numeric, PANEL_MIN_HEIGHT, PANEL_MAX_HEIGHT));
   }
 
   function parseColorLuminance(value) {
@@ -946,8 +927,6 @@
         ? [...new Set(saved.whitelist.map(String).filter(Boolean))]
         : [],
       position: normalizePanelPosition(saved?.position),
-      panelWidth: normalizePanelWidth(saved?.panelWidth),
-      panelHeight: normalizePanelHeight(saved?.panelHeight),
     };
   }
 
@@ -958,8 +937,6 @@
       panelCollapsed: settings.panelCollapsed === true,
       whitelist: [...new Set(settings.whitelist.map(String).filter(Boolean))],
       position: normalizePanelPosition(settings.position),
-      panelWidth: normalizePanelWidth(settings.panelWidth),
-      panelHeight: normalizePanelHeight(settings.panelHeight),
     });
   }
 
@@ -972,7 +949,6 @@
     const settings = loadSettings();
     const state = {
       settings,
-      revealAll: false,
       hiddenCount: 0,
       foldedCount: 0,
       currentUrl: location.href,
@@ -998,16 +974,6 @@
       host.style.top = "auto";
       host.style.left = normalized === "bottom-left" ? "16px" : "auto";
       host.style.right = normalized === "bottom-left" ? "auto" : "16px";
-    }
-
-    function applyPanelDimensions(host, width, height) {
-      host.style.setProperty("--bacf-panel-width", `${normalizePanelWidth(width)}px`);
-      const normalizedHeight = normalizePanelHeight(height);
-      if (normalizedHeight === null) {
-        host.style.removeProperty("--bacf-panel-height");
-      } else {
-        host.style.setProperty("--bacf-panel-height", `${normalizedHeight}px`);
-      }
     }
 
     function applyPanelTheme(host) {
@@ -1337,7 +1303,6 @@
       ensurePanel();
       if (state.currentUrl !== location.href) {
         state.currentUrl = location.href;
-        state.revealAll = false;
         state.hiddenCount = 0;
         state.foldedCount = 0;
       }
@@ -1355,6 +1320,7 @@
 
       const settingsForRules = {
         ...state.settings,
+        enabled: true,
         whitelist: [
           ...state.settings.whitelist,
           ...(context.uploaderUid ? [context.uploaderUid] : []),
@@ -1374,7 +1340,7 @@
         }
         const visible =
           result.decision === "show" ||
-          (result.decision === "hide" && state.revealAll) ||
+          !state.settings.enabled ||
           (result.decision === "fold" && state.settings.showSuspected);
         injectVisibilityStyle(threadHost.shadowRoot);
         threadHost.setAttribute("data-bacf-decision", result.decision);
@@ -1427,7 +1393,6 @@
       host.style.position = "fixed";
       host.style.zIndex = "2147483647";
       applyPanelPosition(host, state.settings.position);
-      applyPanelDimensions(host, state.settings.panelWidth, state.settings.panelHeight);
       applyPanelTheme(host);
       document.documentElement.appendChild(host);
       const root = host.attachShadow({ mode: "open" });
@@ -1477,22 +1442,16 @@
             display: flex;
             flex-direction: column;
             font: 12px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            height: var(--bacf-panel-height, auto);
+            height: ${PANEL_HEIGHT}px;
             max-height: calc(100vh - 32px);
             max-width: calc(100vw - 32px);
-            min-height: 92px;
-            min-width: 168px;
             overflow: visible;
             position: relative;
-            width: var(--bacf-panel-width, 220px);
+            width: ${PANEL_WIDTH}px;
           }
           .panel.settings-mode {
-            height: min(520px, calc(100vh - 32px)) !important;
-            min-width: min(320px, calc(100vw - 32px));
-            width: min(360px, calc(100vw - 32px)) !important;
-          }
-          .panel.settings-mode .resizer {
-            display: none;
+            height: min(${PANEL_SETTINGS_HEIGHT}px, calc(100vh - 32px)) !important;
+            width: min(${PANEL_SETTINGS_WIDTH}px, calc(100vw - 32px)) !important;
           }
           .header {
             align-items: center;
@@ -1578,6 +1537,7 @@
           }
           .panel.collapsed {
             border-radius: 999px;
+            container-type: normal;
             cursor: pointer;
             height: auto !important;
             min-height: 0;
@@ -1590,8 +1550,7 @@
           }
           .panel.collapsed .expanded-label,
           .panel.collapsed .body,
-          .panel.collapsed .toggle,
-          .panel.collapsed .resizer {
+          .panel.collapsed .toggle {
             display: none !important;
           }
           .panel.collapsed .header-actions {
@@ -1603,48 +1562,6 @@
           }
           .panel.collapsed .count {
             margin-left: 4px;
-          }
-          .resizer {
-            background: var(--bacf-panel-bg);
-            border: 1px solid var(--bacf-control-border);
-            border-radius: 50%;
-            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.16);
-            box-sizing: border-box;
-            height: 16px;
-            position: absolute;
-            touch-action: none;
-            top: -8px;
-            width: 16px;
-            z-index: 2;
-          }
-          .resizer::after {
-            background: var(--bacf-panel-muted);
-            border-radius: 50%;
-            content: "";
-            height: 6px;
-            left: 4px;
-            opacity: 0.55;
-            position: absolute;
-            top: 4px;
-            width: 6px;
-          }
-          :host([data-bacf-position="bottom-right"]) .resizer {
-            cursor: nwse-resize;
-            left: -8px;
-            right: auto;
-          }
-          :host([data-bacf-position="bottom-right"]) .resizer::after {
-            left: 4px;
-            top: 4px;
-          }
-          :host([data-bacf-position="bottom-left"]) .resizer {
-            cursor: nesw-resize;
-            left: auto;
-            right: -8px;
-          }
-          :host([data-bacf-position="bottom-left"]) .resizer::after {
-            left: 4px;
-            top: 4px;
           }
           .row {
             align-items: center;
@@ -1724,13 +1641,12 @@
               max-width: calc(100vw - 24px);
             }
             .panel.settings-mode {
-              height: min(72vh, 520px) !important;
+              height: min(${PANEL_SETTINGS_HEIGHT}px, calc(100vh - 24px)) !important;
               width: calc(100vw - 24px) !important;
             }
           }
         </style>
         <div class="panel" tabindex="-1">
-          <div class="resizer" title="拖动调整面板大小" aria-hidden="true"></div>
           <div class="header">
             <div class="title">
               <span class="expanded-label">Agent 评论过滤</span>
@@ -1766,7 +1682,6 @@
           <div class="body">
             <div class="row">
               <span class="status">等待评论区加载</span>
-              <button class="button" type="button" data-action="reveal">显示过滤项</button>
             </div>
             <div class="row">
               <label><input type="checkbox" data-action="enabled" checked> 启用过滤</label>
@@ -1800,10 +1715,8 @@
 
       const elements = {
         panel: root.querySelector(".panel"),
-        resizer: root.querySelector(".resizer"),
         titleCount: root.querySelector(".count"),
         status: root.querySelector(".status"),
-        revealButton: root.querySelector('[data-action="reveal"]'),
         collapseButton: root.querySelector('[data-action="collapse"]'),
         enabledInput: root.querySelector('[data-action="enabled"]'),
         showSuspectedInput: root.querySelector('[data-action="show-suspected"]'),
@@ -1817,7 +1730,6 @@
 
       let collapsed = false;
       let settingsOpen = false;
-      let resizeState = null;
 
       function setCollapsed(nextCollapsed, persist = true) {
         collapsed = Boolean(nextCollapsed);
@@ -1853,14 +1765,12 @@
         elements,
         render() {
           applyPanelPosition(host, state.settings.position);
-          applyPanelDimensions(host, state.settings.panelWidth, state.settings.panelHeight);
           applyPanelTheme(host);
           const total = state.hiddenCount + state.foldedCount;
           elements.titleCount.textContent = total ? ` ${total}` : "";
           elements.status.textContent = total
             ? `隐藏 ${state.hiddenCount} · 疑似 ${state.foldedCount}`
             : "没有匹配到过滤项";
-          elements.revealButton.textContent = state.revealAll ? "只看正常" : "显示过滤项";
           elements.enabledInput.checked = state.settings.enabled;
           elements.showSuspectedInput.checked = state.settings.showSuspected;
           elements.positionSelect.value = normalizePanelPosition(state.settings.position);
@@ -1882,10 +1792,6 @@
           event.preventDefault();
           setCollapsed(false);
         }
-      });
-      elements.revealButton.addEventListener("click", () => {
-        state.revealAll = !state.revealAll;
-        scanPage();
       });
       elements.enabledInput.addEventListener("change", () => {
         state.settings.enabled = elements.enabledInput.checked;
@@ -1919,60 +1825,17 @@
         scanPage();
       });
 
-      elements.resizer.addEventListener("pointerdown", (event) => {
-        if (collapsed || event.button !== 0) {
-          return;
-        }
-        event.preventDefault();
-        event.stopPropagation();
-        const rect = elements.panel.getBoundingClientRect();
-        resizeState = {
-          pointerId: event.pointerId,
-          startX: event.clientX,
-          startY: event.clientY,
-          startWidth: rect.width,
-          startHeight: rect.height,
-          position: normalizePanelPosition(host.dataset.bacfPosition),
-        };
-        elements.resizer.setPointerCapture(event.pointerId);
-      });
-
-      elements.resizer.addEventListener("pointermove", (event) => {
-        if (!resizeState || resizeState.pointerId !== event.pointerId) {
-          return;
-        }
-        event.preventDefault();
-        const maxWidth = Math.max(
-          PANEL_MIN_WIDTH,
-          Math.min(PANEL_MAX_WIDTH, window.innerWidth - 32),
-        );
-        const maxHeight = Math.max(
-          PANEL_MIN_HEIGHT,
-          Math.min(PANEL_MAX_HEIGHT, window.innerHeight - 32),
-        );
-        const deltaX = event.clientX - resizeState.startX;
-        const deltaY = resizeState.startY - event.clientY;
-        const widthDelta = resizeState.position === "bottom-right" ? -deltaX : deltaX;
-        const width = clamp(resizeState.startWidth + widthDelta, PANEL_MIN_WIDTH, maxWidth);
-        const height = clamp(resizeState.startHeight + deltaY, PANEL_MIN_HEIGHT, maxHeight);
-        state.settings.panelWidth = Math.round(width);
-        state.settings.panelHeight = Math.round(height);
-        applyPanelDimensions(host, state.settings.panelWidth, state.settings.panelHeight);
-      });
-
-      function finishResize(event) {
-        if (!resizeState || resizeState.pointerId !== event.pointerId) {
-          return;
-        }
-        resizeState = null;
-        saveSettings(state.settings);
-        if (elements.resizer.hasPointerCapture(event.pointerId)) {
-          elements.resizer.releasePointerCapture(event.pointerId);
-        }
-      }
-
-      elements.resizer.addEventListener("pointerup", finishResize);
-      elements.resizer.addEventListener("pointercancel", finishResize);
+      document.addEventListener(
+        "pointerdown",
+        (event) => {
+          if (collapsed || event.composedPath().includes(host)) {
+            return;
+          }
+          setSettingsOpen(false);
+          setCollapsed(true);
+        },
+        true,
+      );
 
       setCollapsed(Boolean(state.settings.panelCollapsed), false);
       api.render();
@@ -2029,8 +1892,6 @@
       TEMPLATE_FAMILIES,
       normalizeText,
       normalizePanelPosition,
-      normalizePanelWidth,
-      normalizePanelHeight,
       parseColorLuminance,
       detectPageTheme,
       buildVideoContext,

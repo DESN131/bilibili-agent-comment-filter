@@ -6,8 +6,6 @@ const {
   normalizeText,
   buildVideoContext,
   normalizePanelPosition,
-  normalizePanelWidth,
-  normalizePanelHeight,
   parseColorLuminance,
   DEFAULT_SETTINGS,
 } = require("../bilibili-agent-comment-filter.user.js");
@@ -241,18 +239,8 @@ test("parses light and dark colors for automatic theme detection", () => {
   assert.equal(parseColorLuminance("transparent"), null);
 });
 
-test("clamps persisted panel dimensions", () => {
-  assert.equal(normalizePanelWidth(320), 320);
-  assert.equal(normalizePanelWidth(50), 168);
-  assert.equal(normalizePanelWidth(9999), 720);
-  assert.equal(normalizePanelHeight(240), 240);
-  assert.equal(normalizePanelHeight(20), 92);
-  assert.equal(normalizePanelHeight(null), null);
-});
-
-test("uses compact panel defaults and hides suspected comments by default", () => {
-  assert.equal(DEFAULT_SETTINGS.panelCollapsed, false);
+test("uses collapsed panel defaults and hides suspected comments by default", () => {
+  assert.equal(DEFAULT_SETTINGS.panelCollapsed, true);
   assert.equal(DEFAULT_SETTINGS.showSuspected, false);
-  assert.equal(DEFAULT_SETTINGS.panelWidth, 220);
 });
 
