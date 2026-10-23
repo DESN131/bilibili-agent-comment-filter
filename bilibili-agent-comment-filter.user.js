@@ -2,11 +2,13 @@
 // @name         Bilibili Agent Comment Filter
 // @name:zh-CN   B站 Agent 评论过滤器
 // @namespace    local.bilibili-agent-comment-filter
-// @version      0.4.0
+// @version      0.4.1
 // @description  Hide repetitive Bilibili comments that look like AI agents reporting videos to their owners.
 // @description:zh-CN  在本地隐藏疑似 Agent 向主人汇报视频的同质化 B 站主评论。
 // @homepageURL  https://github.com/DESN131/bilibili-agent-comment-filter
 // @supportURL   https://github.com/DESN131/bilibili-agent-comment-filter/issues
+// @updateURL    https://raw.githubusercontent.com/DESN131/bilibili-agent-comment-filter/main/bilibili-agent-comment-filter.user.js
+// @downloadURL  https://raw.githubusercontent.com/DESN131/bilibili-agent-comment-filter/main/bilibili-agent-comment-filter.user.js
 // @match        https://www.bilibili.com/video/*
 // @run-at       document-start
 // @grant        GM_getValue
@@ -17,7 +19,7 @@
 (function () {
   "use strict";
 
-  const VERSION = "0.4.0";
+  const VERSION = "0.4.1";
   const PROJECT_URL = "https://github.com/DESN131/bilibili-agent-comment-filter";
   const STORAGE_KEY = "bacf.settings.v1";
   const HIDE_SCORE = 9;

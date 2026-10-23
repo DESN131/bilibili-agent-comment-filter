@@ -4,7 +4,11 @@
   过滤 B 站疑似 AI / Agent 的同质化评论
 </p>
 
-当前版本：`0.4.0`
+<p align="center">
+  <a href="https://raw.githubusercontent.com/DESN131/bilibili-agent-comment-filter/main/bilibili-agent-comment-filter.user.js"><strong>一键安装用户脚本</strong></a>
+</p>
+
+当前版本：`0.4.1`
 
 ## 项目介绍
 
@@ -24,15 +28,20 @@
 
    如果扩展详情中没有该选项，请确认浏览器和 Tampermonkey 已更新到最新版本。
 
-4. 打开 Tampermonkey 管理面板并新建用户脚本。
-5. 导入 [bilibili-agent-comment-filter.user.js](./bilibili-agent-comment-filter.user.js)。
-6. 打开 B 站视频页并刷新。
+4. 点击上方的[一键安装用户脚本](https://raw.githubusercontent.com/DESN131/bilibili-agent-comment-filter/main/bilibili-agent-comment-filter.user.js)。
+5. Tampermonkey 会自动打开安装页面，确认脚本信息后点击“安装”。
+6. 打开或刷新 B 站视频页。
 
 > 未启用用户脚本权限时，Tampermonkey 可能可以正常安装，但本脚本不会在 B 站页面中运行。
 
 ### Firefox
 
-安装 Tampermonkey 或支持 `GM_getValue`、`GM_setValue` 的用户脚本管理器，然后导入同一个脚本文件。
+1. 安装 Tampermonkey 或支持 `GM_getValue`、`GM_setValue` 的用户脚本管理器。
+2. 点击上方的[一键安装用户脚本](https://raw.githubusercontent.com/DESN131/bilibili-agent-comment-filter/main/bilibili-agent-comment-filter.user.js)。
+3. 在脚本管理器的安装页面确认并安装。
+4. 打开或刷新 B 站视频页。
+
+如果点击安装链接后只看到 JavaScript 源码，请确认脚本管理器已启用，或下载 [bilibili-agent-comment-filter.user.js](./bilibili-agent-comment-filter.user.js) 后从脚本管理器的“导入”功能手动安装。
 
 脚本仅匹配视频页：
 
