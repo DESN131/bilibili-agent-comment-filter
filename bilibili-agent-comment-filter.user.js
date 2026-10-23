@@ -25,10 +25,10 @@
   const MIN_BATCH_FOR_SPECIFICITY = 8;
   const DUPLICATE_WINDOW = 24;
   const OWNER_WINDOW = 90;
-  const PANEL_WIDTH = 260;
-  const PANEL_HEIGHT = 220;
-  const PANEL_SETTINGS_WIDTH = 360;
-  const PANEL_SETTINGS_HEIGHT = 470;
+  const PANEL_WIDTH = 240;
+  const PANEL_HEIGHT = 170;
+  const PANEL_SETTINGS_WIDTH = 320;
+  const PANEL_SETTINGS_HEIGHT = 340;
 
   const DEFAULT_SETTINGS = Object.freeze({
     filterAI: true,
@@ -1543,12 +1543,13 @@
           .body {
             align-content: start;
             border-top: 1px solid var(--bacf-panel-border);
-            display: grid;
+            display: flex;
+            flex-direction: column;
             flex: 1 1 auto;
-            gap: 8px;
+            gap: 6px;
             min-height: 0;
             overflow: auto;
-            padding: 10px 12px 12px;
+            padding: 8px 10px 10px;
           }
           .panel.collapsed {
             border-radius: 999px;
@@ -1607,9 +1608,15 @@
             box-sizing: border-box;
             color: var(--bacf-panel-text);
             font: 12px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
-            min-height: 72px;
+            min-height: 60px;
             padding: 7px 8px;
             resize: vertical;
+            width: 100%;
+          }
+          .settings-toggle-row {
+            margin-top: auto;
+          }
+          .settings-toggle-row .button {
             width: 100%;
           }
           .hint {
@@ -1700,12 +1707,6 @@
             </div>
             <div class="row">
               <label><input type="checkbox" data-action="filter-ai" checked> 过滤 AI 评论</label>
-              <button
-                class="small-button"
-                type="button"
-                data-action="settings"
-                aria-expanded="false"
-              >设置</button>
             </div>
             <div class="row">
               <label>
@@ -1726,6 +1727,14 @@
               <div class="row">
                 <button class="button" type="button" data-action="save-whitelist">保存白名单</button>
               </div>
+            </div>
+            <div class="row settings-toggle-row">
+              <button
+                class="button"
+                type="button"
+                data-action="settings"
+                aria-expanded="false"
+              >设置</button>
             </div>
           </div>
         </div>
