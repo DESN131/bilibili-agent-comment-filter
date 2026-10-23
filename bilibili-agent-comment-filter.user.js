@@ -25,10 +25,16 @@
   const MIN_BATCH_FOR_SPECIFICITY = 8;
   const DUPLICATE_WINDOW = 24;
   const OWNER_WINDOW = 90;
+  const AUTO_LOAD_MIN_NORMAL = 3;
+  const AUTO_LOAD_START_DELAY = 600;
+  const AUTO_LOAD_RETRY_DELAY = 1200;
+  const AUTO_LOAD_PROBE_INTERVAL = 350;
+  const AUTO_LOAD_TIMEOUT = 12000;
+  const AUTO_LOAD_MAX_FAILURES = 2;
   const PANEL_WIDTH = 240;
   const PANEL_HEIGHT = 170;
   const PANEL_SETTINGS_WIDTH = 320;
-  const PANEL_SETTINGS_HEIGHT = 340;
+  const PANEL_SETTINGS_HEIGHT = 360;
 
   const DEFAULT_SETTINGS = Object.freeze({
     filterAI: true,
@@ -960,6 +966,15 @@
       currentUrl: location.href,
       scanTimer: 0,
       routeTimer: 0,
+      autoLoadTimer: 0,
+      autoLoadInFlight: false,
+      autoLoadBeforeCount: 0,
+      autoLoadStartedAt: 0,
+      autoLoadFailures: 0,
+      autoLoadBlocked: false,
+      autoLoadRoute: location.href,
+      autoLoadStatusElement: null,
+      stableShowKeys: new Set(),
     };
 
     const observedRoots = new WeakSet();
@@ -1002,12 +1017,53 @@
       }, delay);
     }
 
+    function clearAutoLoadTimer() {
+      if (state.autoLoadTimer) {
+        clearTimeout(state.autoLoadTimer);
+        state.autoLoadTimer = 0;
+      }
+    }
+
+    function hideCommentLoadStatus(remove = false) {
+      const status = state.autoLoadStatusElement;
+      if (!status) {
+        return;
+      }
+      if (!status.hidden) {
+        status.hidden = true;
+      }
+      if (status.textContent) {
+        status.textContent = "";
+      }
+      if (remove) {
+        status.remove();
+        state.autoLoadStatusElement = null;
+      }
+    }
+
+    function resetAutoLoadState() {
+      clearAutoLoadTimer();
+      state.autoLoadInFlight = false;
+      state.autoLoadBeforeCount = 0;
+      state.autoLoadStartedAt = 0;
+      state.autoLoadFailures = 0;
+      state.autoLoadBlocked = false;
+      state.autoLoadRoute = location.href;
+      state.stableShowKeys.clear();
+      for (const host of document.querySelectorAll("bili-comments")) {
+        host.removeAttribute("data-bacf-autoloading");
+      }
+      hideCommentLoadStatus(true);
+    }
+
     function observeRoot(root) {
       if (!root || observedRoots.has(root)) {
         return;
       }
       observedRoots.add(root);
-      const observer = new MutationObserver(() => scheduleScan());
+      const observer = new MutationObserver(() =>
+        scheduleScan(state.autoLoadInFlight ? 0 : 160),
+      );
       observer.observe(root, {
         subtree: true,
         childList: true,
@@ -1311,10 +1367,325 @@
       return status;
     }
 
+    function getCommentLoader() {
+      const host = document.querySelector("bili-comments");
+      const root = host?.shadowRoot;
+      if (!host || !root) {
+        return null;
+      }
+
+      const domCount = root.querySelectorAll("#feed > bili-comment-thread-renderer").length;
+      const loadedCount = Array.isArray(host.list) ? host.list.length : domCount;
+      const rawTotal = Number(host.count);
+      const totalCount = Number.isFinite(rawTotal) && rawTotal > 0 ? rawTotal : 0;
+      const ended = host.showEnd === true || (totalCount > 0 && loadedCount >= totalCount);
+      const canLoad = typeof host.load === "function";
+      return {
+        host,
+        root,
+        domCount,
+        loadedCount,
+        totalCount,
+        ended,
+        canLoad,
+        hasMore: !ended && (canLoad || totalCount > loadedCount),
+      };
+    }
+
+    function injectCommentLoadStyle(root) {
+      if (root.querySelector("style[data-bacf-autoload-style]")) {
+        return;
+      }
+      const style = document.createElement("style");
+      style.dataset.bacfAutoloadStyle = "true";
+      style.textContent = `
+        .bacf-load-status {
+          align-items: center;
+          color: var(--text2, #61666d);
+          display: flex;
+          font: 12px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          gap: 8px;
+          justify-content: center;
+          min-height: 40px;
+          padding: 8px 12px 16px;
+          text-align: center;
+        }
+        .bacf-load-status[hidden] {
+          display: none !important;
+        }
+        .bacf-load-status[data-state="loading"]::before {
+          animation: bacf-load-spin 0.8s linear infinite;
+          border: 2px solid color-mix(in srgb, #fb7299 24%, transparent);
+          border-radius: 50%;
+          border-top-color: #fb7299;
+          box-sizing: border-box;
+          content: "";
+          flex: 0 0 auto;
+          height: 14px;
+          width: 14px;
+        }
+        .bacf-load-status[data-state="done"] {
+          color: var(--text3, #9499a0);
+        }
+        .bacf-load-status[data-state="error"] {
+          color: #d14d7a;
+        }
+        @keyframes bacf-load-spin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+        @media (prefers-color-scheme: dark) {
+          .bacf-load-status[data-state="error"] {
+            color: #ff9db8;
+          }
+        }
+      `;
+      root.appendChild(style);
+    }
+
+    function updatePendingCommentRule(root, startIndex) {
+      let style = root.querySelector("style[data-bacf-pending-style]");
+      if (!style) {
+        style = document.createElement("style");
+        style.dataset.bacfPendingStyle = "true";
+        root.appendChild(style);
+      }
+      style.textContent =
+        startIndex > 0
+          ? `
+            :host([data-bacf-autoloading="true"]) #feed > bili-comment-thread-renderer:nth-child(n + ${startIndex + 1}):not([data-bacf-decision]) {
+              display: none !important;
+            }
+          `
+          : "";
+    }
+
+    function ensureCommentLoadStatus(root) {
+      injectCommentLoadStyle(root);
+      const existing = state.autoLoadStatusElement;
+      if (existing?.getRootNode() === root) {
+        return existing;
+      }
+      existing?.remove();
+
+      const status = document.createElement("div");
+      status.className = "bacf-load-status";
+      status.dataset.state = "loading";
+      status.hidden = true;
+      status.setAttribute("role", "status");
+      status.setAttribute("aria-live", "polite");
+      root.appendChild(status);
+      state.autoLoadStatusElement = status;
+      return status;
+    }
+
+    function setCommentLoadStatus(loader, text, kind = "loading") {
+      const status = ensureCommentLoadStatus(loader.root);
+      if (status.dataset.state !== kind) {
+        status.dataset.state = kind;
+      }
+      if (status.textContent !== text) {
+        status.textContent = text;
+      }
+      if (status.hidden) {
+        status.hidden = false;
+      }
+    }
+
+    function setAutoLoadingAttribute(loader, active) {
+      if (active) {
+        if (loader.host.getAttribute("data-bacf-autoloading") !== "true") {
+          loader.host.setAttribute("data-bacf-autoloading", "true");
+        }
+      } else if (loader.host.hasAttribute("data-bacf-autoloading")) {
+        loader.host.removeAttribute("data-bacf-autoloading");
+        updatePendingCommentRule(loader.root, 0);
+      }
+    }
+
+    function scheduleAutoLoad(delay) {
+      if (state.autoLoadTimer || state.autoLoadInFlight || state.autoLoadBlocked) {
+        return;
+      }
+      const route = location.href;
+      state.autoLoadTimer = window.setTimeout(() => {
+        state.autoLoadTimer = 0;
+        beginAutoLoad(route);
+      }, delay);
+    }
+
+    function beginAutoLoad(route) {
+      if (route !== location.href || state.autoLoadInFlight || state.autoLoadBlocked) {
+        return;
+      }
+      const loader = getCommentLoader();
+      if (!loader?.canLoad || !loader.hasMore) {
+        return;
+      }
+
+      state.autoLoadRoute = route;
+      state.autoLoadInFlight = true;
+      state.autoLoadBeforeCount = loader.loadedCount;
+      state.autoLoadStartedAt = Date.now();
+      setAutoLoadingAttribute(loader, true);
+      updatePendingCommentRule(loader.root, loader.domCount);
+      setCommentLoadStatus(
+        loader,
+        `正在加载并判断更多评论… ${loader.loadedCount}${loader.totalCount ? ` / ${loader.totalCount}` : ""} 条`,
+      );
+
+      let request;
+      try {
+        request = loader.host.load();
+      } catch (_error) {
+        handleAutoLoadFailure(route);
+        return;
+      }
+      Promise.resolve(request).catch(() => handleAutoLoadFailure(route));
+      state.autoLoadTimer = window.setTimeout(
+        () => probeAutoLoad(route),
+        AUTO_LOAD_PROBE_INTERVAL,
+      );
+    }
+
+    function probeAutoLoad(route) {
+      state.autoLoadTimer = 0;
+      if (route !== location.href) {
+        resetAutoLoadState();
+        return;
+      }
+
+      const loader = getCommentLoader();
+      const madeProgress =
+        loader &&
+        (loader.loadedCount > state.autoLoadBeforeCount || loader.ended);
+      if (madeProgress) {
+        state.autoLoadInFlight = false;
+        state.autoLoadFailures = 0;
+        state.autoLoadBeforeCount = loader.loadedCount;
+        scheduleScan(0);
+        return;
+      }
+
+      if (Date.now() - state.autoLoadStartedAt >= AUTO_LOAD_TIMEOUT) {
+        handleAutoLoadFailure(route);
+        return;
+      }
+
+      state.autoLoadTimer = window.setTimeout(
+        () => probeAutoLoad(route),
+        AUTO_LOAD_PROBE_INTERVAL,
+      );
+    }
+
+    function handleAutoLoadFailure(route) {
+      if (!state.autoLoadInFlight || route !== location.href) {
+        return;
+      }
+      clearAutoLoadTimer();
+      state.autoLoadInFlight = false;
+      state.autoLoadFailures += 1;
+
+      const loader = getCommentLoader();
+      if (!loader) {
+        return;
+      }
+      if (state.autoLoadFailures >= AUTO_LOAD_MAX_FAILURES || !loader.hasMore) {
+        state.autoLoadBlocked = true;
+        setAutoLoadingAttribute(loader, false);
+        setCommentLoadStatus(
+          loader,
+          `自动加载已暂停，已检查 ${loader.loadedCount} 条主评论`,
+          "error",
+        );
+        return;
+      }
+
+      setCommentLoadStatus(
+        loader,
+        `加载暂时中断，正在重试… 已检查 ${loader.loadedCount} 条主评论`,
+        "error",
+      );
+      scheduleScan(AUTO_LOAD_RETRY_DELAY);
+    }
+
+    function maybeScheduleAutoLoad(records, results) {
+      const loader = getCommentLoader();
+      if (!loader || records.length === 0) {
+        return;
+      }
+
+      if (state.autoLoadRoute !== location.href) {
+        resetAutoLoadState();
+      }
+
+      const normalCount = results.filter(
+        (result) => !result.disabled && result.decision === "show",
+      ).length;
+      const effectiveHiddenCount = results.filter(
+        (result) =>
+          !result.disabled &&
+          ((result.decision === "hide" && state.settings.filterAI) ||
+            (result.decision === "fold" && state.settings.filterSuspected)),
+      ).length;
+      const shouldLoad =
+        effectiveHiddenCount > 0 && normalCount < AUTO_LOAD_MIN_NORMAL;
+
+      if (!shouldLoad) {
+        clearAutoLoadTimer();
+        state.autoLoadInFlight = false;
+        state.autoLoadFailures = 0;
+        state.autoLoadBlocked = false;
+        setAutoLoadingAttribute(loader, false);
+        hideCommentLoadStatus();
+        return;
+      }
+
+      setAutoLoadingAttribute(loader, true);
+      if (!loader.canLoad) {
+        setAutoLoadingAttribute(loader, false);
+        setCommentLoadStatus(
+          loader,
+          "当前评论区不支持自动补加载",
+          "error",
+        );
+        return;
+      }
+      if (loader.ended || !loader.hasMore) {
+        clearAutoLoadTimer();
+        state.autoLoadInFlight = false;
+        setAutoLoadingAttribute(loader, false);
+        setCommentLoadStatus(
+          loader,
+          `已检查全部 ${loader.loadedCount} 条主评论，暂未找到足够正常评论`,
+          "done",
+        );
+        return;
+      }
+      if (state.autoLoadBlocked) {
+        setCommentLoadStatus(
+          loader,
+          `自动加载已暂停，已检查 ${loader.loadedCount} 条主评论`,
+          "error",
+        );
+        return;
+      }
+
+      if (!state.autoLoadInFlight) {
+        setCommentLoadStatus(
+          loader,
+          `正在加载并判断更多评论… ${loader.loadedCount}${loader.totalCount ? ` / ${loader.totalCount}` : ""} 条`,
+        );
+        scheduleAutoLoad(AUTO_LOAD_START_DELAY);
+      }
+    }
+
     function scanPage() {
       ensurePanel();
       if (state.currentUrl !== location.href) {
         state.currentUrl = location.href;
+        resetAutoLoadState();
         setPanelVisible(false);
         state.hiddenCount = 0;
         state.foldedCount = 0;
@@ -1343,10 +1714,32 @@
         ],
       };
       const results = classifyComments(records, context, settingsForRules);
+      const displayResults = results.map((result) => {
+        const stableShow =
+          !result.disabled &&
+          result.decision !== "show" &&
+          state.stableShowKeys.has(result.key);
+        if (!stableShow) {
+          return result;
+        }
+        return {
+          ...result,
+          decision: "show",
+          stableShow: true,
+          reasons: [...result.reasons, "保持已通过判断"],
+        };
+      });
+      if (records.length >= MIN_BATCH_FOR_SPECIFICITY) {
+        for (const result of displayResults) {
+          if (!result.disabled && result.decision === "show") {
+            state.stableShowKeys.add(result.key);
+          }
+        }
+      }
       state.hiddenCount = 0;
       state.foldedCount = 0;
 
-      for (const result of results) {
+      for (const result of displayResults) {
         if (result.disabled) {
           continue;
         }
@@ -1359,6 +1752,8 @@
           (result.decision === "hide" && !state.settings.filterAI) ||
           (result.decision === "fold" && !state.settings.filterSuspected);
         injectVisibilityStyle(threadHost.shadowRoot);
+        threadHost.dataset.bacfKey = result.key;
+        threadHost.dataset.bacfUid = result.uid || "";
         threadHost.setAttribute("data-bacf-decision", result.decision);
         threadHost.setAttribute("data-bacf-visible", String(Boolean(visible)));
         threadHost.setAttribute("data-bacf-theme", pageTheme);
@@ -1398,6 +1793,7 @@
 
       setPanelVisible(records.length > 0 && state.hiddenCount + state.foldedCount > 0);
       renderPanel();
+      maybeScheduleAutoLoad(records, displayResults);
     }
 
     function createPanel() {
