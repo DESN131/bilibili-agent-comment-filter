@@ -967,6 +967,12 @@
       return panel;
     }
 
+    function setPanelVisible(visible) {
+      if (panel?.host) {
+        panel.host.style.display = visible ? "" : "none";
+      }
+    }
+
     function applyPanelPosition(host, position) {
       const normalized = normalizePanelPosition(position);
       host.dataset.bacfPosition = normalized;
@@ -1303,6 +1309,7 @@
       ensurePanel();
       if (state.currentUrl !== location.href) {
         state.currentUrl = location.href;
+        setPanelVisible(false);
         state.hiddenCount = 0;
         state.foldedCount = 0;
       }
@@ -1380,6 +1387,7 @@
         }
       }
 
+      setPanelVisible(records.length > 0 && state.hiddenCount + state.foldedCount > 0);
       renderPanel();
     }
 
@@ -1390,6 +1398,7 @@
       }
       const host = document.createElement("div");
       host.id = "bacf-widget-host";
+      host.style.display = "none";
       host.style.position = "fixed";
       host.style.zIndex = "2147483647";
       applyPanelPosition(host, state.settings.position);
