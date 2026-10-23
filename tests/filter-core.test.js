@@ -239,8 +239,9 @@ test("parses light and dark colors for automatic theme detection", () => {
   assert.equal(parseColorLuminance("transparent"), null);
 });
 
-test("uses collapsed panel defaults and hides suspected comments by default", () => {
+test("uses collapsed panel and filtering defaults", () => {
   assert.equal(DEFAULT_SETTINGS.panelCollapsed, true);
-  assert.equal(DEFAULT_SETTINGS.showSuspected, false);
+  assert.equal(DEFAULT_SETTINGS.filterAI, true);
+  assert.equal(DEFAULT_SETTINGS.filterSuspected, true);
 });
 

@@ -31,8 +31,8 @@
   const PANEL_SETTINGS_HEIGHT = 470;
 
   const DEFAULT_SETTINGS = Object.freeze({
-    enabled: true,
-    showSuspected: false,
+    filterAI: true,
+    filterSuspected: true,
     panelCollapsed: true,
     whitelist: [],
     position: "bottom-right",
@@ -919,9 +919,15 @@
 
   function loadSettings() {
     const saved = readStorage(STORAGE_KEY, DEFAULT_SETTINGS);
+    const legacyShowSuspected = saved?.showSuspected;
     return {
-      enabled: saved?.enabled !== false,
-      showSuspected: saved?.showSuspected === true,
+      filterAI: typeof saved?.filterAI === "boolean" ? saved.filterAI : saved?.enabled !== false,
+      filterSuspected:
+        typeof saved?.filterSuspected === "boolean"
+          ? saved.filterSuspected
+          : typeof legacyShowSuspected === "boolean"
+            ? !legacyShowSuspected
+            : true,
       panelCollapsed: saved?.panelCollapsed === true,
       whitelist: Array.isArray(saved?.whitelist)
         ? [...new Set(saved.whitelist.map(String).filter(Boolean))]
@@ -932,8 +938,8 @@
 
   function saveSettings(settings) {
     writeStorage(STORAGE_KEY, {
-      enabled: settings.enabled !== false,
-      showSuspected: settings.showSuspected === true,
+      filterAI: settings.filterAI !== false,
+      filterSuspected: settings.filterSuspected !== false,
       panelCollapsed: settings.panelCollapsed === true,
       whitelist: [...new Set(settings.whitelist.map(String).filter(Boolean))],
       position: normalizePanelPosition(settings.position),
@@ -1347,8 +1353,8 @@
         }
         const visible =
           result.decision === "show" ||
-          !state.settings.enabled ||
-          (result.decision === "fold" && state.settings.showSuspected);
+          (result.decision === "hide" && !state.settings.filterAI) ||
+          (result.decision === "fold" && !state.settings.filterSuspected);
         injectVisibilityStyle(threadHost.shadowRoot);
         threadHost.setAttribute("data-bacf-decision", result.decision);
         threadHost.setAttribute("data-bacf-visible", String(Boolean(visible)));
@@ -1693,7 +1699,7 @@
               <span class="status">等待评论区加载</span>
             </div>
             <div class="row">
-              <label><input type="checkbox" data-action="enabled" checked> 启用过滤</label>
+              <label><input type="checkbox" data-action="filter-ai" checked> 过滤 AI 评论</label>
               <button
                 class="small-button"
                 type="button"
@@ -1702,7 +1708,10 @@
               >设置</button>
             </div>
             <div class="row">
-              <label><input type="checkbox" data-action="show-suspected"> 显示疑似项</label>
+              <label>
+                <input type="checkbox" data-action="filter-suspected" checked>
+                过滤疑似 AI 评论
+              </label>
             </div>
             <div class="settings">
               <div class="row">
@@ -1727,8 +1736,8 @@
         titleCount: root.querySelector(".count"),
         status: root.querySelector(".status"),
         collapseButton: root.querySelector('[data-action="collapse"]'),
-        enabledInput: root.querySelector('[data-action="enabled"]'),
-        showSuspectedInput: root.querySelector('[data-action="show-suspected"]'),
+        filterAIInput: root.querySelector('[data-action="filter-ai"]'),
+        filterSuspectedInput: root.querySelector('[data-action="filter-suspected"]'),
         settings: root.querySelector(".settings"),
         settingsButton: root.querySelector('[data-action="settings"]'),
         positionSelect: root.querySelector('[data-action="position"]'),
@@ -1780,8 +1789,8 @@
           elements.status.textContent = total
             ? `隐藏 ${state.hiddenCount} · 疑似 ${state.foldedCount}`
             : "没有匹配到过滤项";
-          elements.enabledInput.checked = state.settings.enabled;
-          elements.showSuspectedInput.checked = state.settings.showSuspected;
+          elements.filterAIInput.checked = state.settings.filterAI;
+          elements.filterSuspectedInput.checked = state.settings.filterSuspected;
           elements.positionSelect.value = normalizePanelPosition(state.settings.position);
         },
       };
@@ -1802,13 +1811,13 @@
           setCollapsed(false);
         }
       });
-      elements.enabledInput.addEventListener("change", () => {
-        state.settings.enabled = elements.enabledInput.checked;
+      elements.filterAIInput.addEventListener("change", () => {
+        state.settings.filterAI = elements.filterAIInput.checked;
         saveSettings(state.settings);
         scanPage();
       });
-      elements.showSuspectedInput.addEventListener("change", () => {
-        state.settings.showSuspected = elements.showSuspectedInput.checked;
+      elements.filterSuspectedInput.addEventListener("change", () => {
+        state.settings.filterSuspected = elements.filterSuspectedInput.checked;
         saveSettings(state.settings);
         scanPage();
       });
