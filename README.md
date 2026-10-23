@@ -17,9 +17,18 @@
 ### Chrome 或 Edge
 
 1. 安装 [Tampermonkey](https://www.tampermonkey.net/)。
-2. 打开 Tampermonkey 管理面板并新建用户脚本。
-3. 导入 [bilibili-agent-comment-filter.user.js](./bilibili-agent-comment-filter.user.js)。
-4. 打开 B 站视频页并刷新。
+2. 打开浏览器扩展管理页：
+   - Chrome：访问 `chrome://extensions/`
+   - Edge：访问 `edge://extensions/`
+3. 找到 Tampermonkey，打开“详情”，启用“允许用户脚本”或“允许运行用户脚本”。
+
+   如果扩展详情中没有该选项，请确认浏览器和 Tampermonkey 已更新到最新版本。
+
+4. 打开 Tampermonkey 管理面板并新建用户脚本。
+5. 导入 [bilibili-agent-comment-filter.user.js](./bilibili-agent-comment-filter.user.js)。
+6. 打开 B 站视频页并刷新。
+
+> 未启用用户脚本权限时，Tampermonkey 可能可以正常安装，但本脚本不会在 B 站页面中运行。
 
 ### Firefox
 
