@@ -1032,10 +1032,7 @@
       Element.prototype.attachShadow = function (init) {
         const root = originalAttachShadow.call(this, init);
         observeRoot(root);
-        if (this.tagName?.toLowerCase() === "bili-comment-thread-renderer") {
-          injectVisibilityStyle(root);
-        }
-        scheduleScan(0);
+        scheduleScan();
         return root;
       };
     }
@@ -1263,32 +1260,11 @@
       const style = document.createElement("style");
       style.dataset.bacfVisibility = "true";
       style.textContent = `
-        :host(:not([data-bacf-visible])) {
-          pointer-events: none !important;
-          visibility: hidden !important;
-        }
         :host([data-bacf-visible="false"]) {
           display: none !important;
         }
-        :host([data-bacf-visible="true"]) {
-          visibility: visible !important;
-        }
       `;
       root.insertBefore(style, root.firstChild);
-    }
-
-    function nudgeCommentLoading() {
-      window.setTimeout(() => {
-        const targets = [
-          window,
-          document.querySelector(".commentapp"),
-          document.querySelector("bili-comments"),
-        ].filter(Boolean);
-        for (const target of targets) {
-          target.dispatchEvent(new Event("scroll", { bubbles: true }));
-        }
-        window.dispatchEvent(new Event("resize"));
-      }, 80);
     }
 
     function ensureInlineStatus(threadHost) {
@@ -1369,7 +1345,6 @@
       const results = classifyComments(records, context, settingsForRules);
       state.hiddenCount = 0;
       state.foldedCount = 0;
-      let visibleCount = 0;
 
       for (const result of results) {
         if (result.disabled) {
@@ -1383,9 +1358,6 @@
           result.decision === "show" ||
           (result.decision === "hide" && !state.settings.filterAI) ||
           (result.decision === "fold" && !state.settings.filterSuspected);
-        if (visible) {
-          visibleCount += 1;
-        }
         injectVisibilityStyle(threadHost.shadowRoot);
         threadHost.setAttribute("data-bacf-decision", result.decision);
         threadHost.setAttribute("data-bacf-visible", String(Boolean(visible)));
@@ -1425,9 +1397,6 @@
       }
 
       setPanelVisible(records.length > 0 && state.hiddenCount + state.foldedCount > 0);
-      if (records.length > 0 && visibleCount === 0) {
-        nudgeCommentLoading();
-      }
       renderPanel();
     }
 
