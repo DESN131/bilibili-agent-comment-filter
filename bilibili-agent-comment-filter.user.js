@@ -2,7 +2,7 @@
 // @name         Bilibili Agent Comment Filter
 // @name:zh-CN   B站 Agent 评论过滤器
 // @namespace    local.bilibili-agent-comment-filter
-// @version      0.4.1
+// @version      0.5.0
 // @description  Hide repetitive Bilibili comments that look like AI agents reporting videos to their owners.
 // @description:zh-CN  在本地隐藏疑似 Agent 向主人汇报视频的同质化 B 站主评论。
 // @homepageURL  https://github.com/DESN131/bilibili-agent-comment-filter
@@ -13,13 +13,15 @@
 // @run-at       document-start
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_registerMenuCommand
+// @grant        GM_unregisterMenuCommand
 // @noframes
 // ==/UserScript==
 
 (function () {
   "use strict";
 
-  const VERSION = "0.4.1";
+  const VERSION = "0.5.0";
   const PROJECT_URL = "https://github.com/DESN131/bilibili-agent-comment-filter";
   const STORAGE_KEY = "bacf.settings.v1";
   const HIDE_SCORE = 9;
@@ -42,6 +44,7 @@
     filterAI: true,
     filterSuspected: true,
     panelCollapsed: true,
+    panelHidden: false,
     whitelist: [],
     position: "bottom-left",
   });
@@ -937,6 +940,7 @@
             ? !legacyShowSuspected
             : true,
       panelCollapsed: saved?.panelCollapsed === true,
+      panelHidden: saved?.panelHidden === true,
       whitelist: Array.isArray(saved?.whitelist)
         ? [...new Set(saved.whitelist.map(String).filter(Boolean))]
         : [],
@@ -949,6 +953,7 @@
       filterAI: settings.filterAI !== false,
       filterSuspected: settings.filterSuspected !== false,
       panelCollapsed: settings.panelCollapsed === true,
+      panelHidden: settings.panelHidden === true,
       whitelist: [...new Set(settings.whitelist.map(String).filter(Boolean))],
       position: normalizePanelPosition(settings.position),
     });
@@ -977,6 +982,7 @@
       autoLoadRoute: location.href,
       autoLoadStatusElement: null,
       stableShowKeys: new Set(),
+      panelForceVisible: false,
     };
 
     const observedRoots = new WeakSet();
@@ -990,10 +996,16 @@
       return panel;
     }
 
-    function setPanelVisible(visible) {
-      if (panel?.host) {
-        panel.host.style.display = visible ? "" : "none";
+    function setPanelVisible(visible, force = false) {
+      if (force) {
+        state.panelForceVisible = true;
       }
+      const shouldShow =
+        !state.settings.panelHidden && (Boolean(visible) || state.panelForceVisible);
+      if (panel?.host) {
+        panel.host.style.display = shouldShow ? "" : "none";
+      }
+      return shouldShow;
     }
 
     function applyPanelPosition(host, position) {
@@ -1688,6 +1700,7 @@
       if (state.currentUrl !== location.href) {
         state.currentUrl = location.href;
         resetAutoLoadState();
+        state.panelForceVisible = false;
         setPanelVisible(false);
         state.hiddenCount = 0;
         state.foldedCount = 0;
@@ -2206,6 +2219,10 @@
       const api = {
         host,
         elements,
+        open() {
+          setSettingsOpen(false);
+          setCollapsed(false);
+        },
         render() {
           applyPanelPosition(host, state.settings.position);
           applyPanelTheme(host);
@@ -2292,6 +2309,61 @@
       }
     }
 
+    let menuToggleCommandId = null;
+
+    function updatePanelMenuCommand() {
+      if (typeof GM_registerMenuCommand !== "function") {
+        return;
+      }
+      const nextLabel = state.settings.panelHidden
+        ? "显示悬浮面板"
+        : "隐藏悬浮面板";
+      if (menuToggleCommandId != null) {
+        if (typeof GM_unregisterMenuCommand !== "function") {
+          return;
+        }
+        GM_unregisterMenuCommand(menuToggleCommandId);
+        menuToggleCommandId = null;
+      }
+      menuToggleCommandId = GM_registerMenuCommand(nextLabel, toggleFloatingPanel);
+    }
+
+    function setFloatingPanelHidden(hidden, options = {}) {
+      state.settings.panelHidden = Boolean(hidden);
+      state.panelForceVisible = !state.settings.panelHidden;
+      saveSettings(state.settings);
+      ensurePanel();
+
+      if (state.settings.panelHidden) {
+        state.panelForceVisible = false;
+        setPanelVisible(false);
+      } else {
+        if (options.expand) {
+          panel?.open();
+        }
+        setPanelVisible(true, true);
+      }
+      renderPanel();
+      updatePanelMenuCommand();
+    }
+
+    function openPanelFromMenu() {
+      setFloatingPanelHidden(false, { expand: true });
+    }
+
+    function toggleFloatingPanel() {
+      const showPanel = state.settings.panelHidden;
+      setFloatingPanelHidden(!showPanel, { expand: showPanel });
+    }
+
+    function registerPanelMenuCommands() {
+      if (typeof GM_registerMenuCommand !== "function") {
+        return;
+      }
+      GM_registerMenuCommand("打开脚本面板", openPanelFromMenu);
+      updatePanelMenuCommand();
+    }
+
     if (document.documentElement) {
       observeRoot(document);
       ensurePanel();
@@ -2310,6 +2382,7 @@
 
     installShadowObserver();
     watchPageTheme();
+    registerPanelMenuCommands();
     const colorSchemeMedia = window.matchMedia?.("(prefers-color-scheme: dark)");
     if (colorSchemeMedia?.addEventListener) {
       colorSchemeMedia.addEventListener("change", () => scheduleScan(0));

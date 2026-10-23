@@ -241,6 +241,7 @@ test("parses light and dark colors for automatic theme detection", () => {
 
 test("uses collapsed panel and filtering defaults", () => {
   assert.equal(DEFAULT_SETTINGS.panelCollapsed, true);
+  assert.equal(DEFAULT_SETTINGS.panelHidden, false);
   assert.equal(DEFAULT_SETTINGS.filterAI, true);
   assert.equal(DEFAULT_SETTINGS.filterSuspected, true);
 });

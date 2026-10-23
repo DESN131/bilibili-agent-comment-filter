@@ -8,7 +8,7 @@
   <a href="https://raw.githubusercontent.com/DESN131/bilibili-agent-comment-filter/main/bilibili-agent-comment-filter.user.js"><strong>一键安装用户脚本</strong></a>
 </p>
 
-当前版本：`0.4.1`
+当前版本：`0.5.0`
 
 ## 项目介绍
 
@@ -67,6 +67,7 @@ https://www.bilibili.com/video/*
 - 在“设置”中切换右下角或左下角位置。
 - 面板使用紧凑固定尺寸；打开“设置”时切换到固定设置框。
 - 面板位置、收起状态和白名单会自动保存。
+- 可通过 Tampermonkey 扩展菜单打开脚本面板，或隐藏/显示悬浮面板。
 - 关闭对应过滤开关后显示相应评论，并保留“已过滤”或“疑似”内联标签。
 
 ## 判断流程
