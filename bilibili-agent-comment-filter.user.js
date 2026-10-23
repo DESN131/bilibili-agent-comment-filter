@@ -1260,8 +1260,13 @@
       const style = document.createElement("style");
       style.dataset.bacfVisibility = "true";
       style.textContent = `
+        :host(:not([data-bacf-visible])),
         :host([data-bacf-visible="false"]) {
-          display: none !important;
+          pointer-events: none !important;
+          visibility: hidden !important;
+        }
+        :host([data-bacf-visible="true"]) {
+          visibility: visible !important;
         }
       `;
       root.insertBefore(style, root.firstChild);
@@ -1325,6 +1330,9 @@
       const pageTheme = detectPageTheme();
       const records = [];
       threads.forEach((threadHost, index) => {
+        if (threadHost.shadowRoot) {
+          injectVisibilityStyle(threadHost.shadowRoot);
+        }
         const record = extractMainComment(threadHost, index);
         if (record) {
           records.push(record);
