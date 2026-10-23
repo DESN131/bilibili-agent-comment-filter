@@ -1468,7 +1468,7 @@
             height: ${PANEL_HEIGHT}px;
             max-height: calc(100vh - 32px);
             max-width: calc(100vw - 32px);
-            overflow: visible;
+            overflow: hidden;
             position: relative;
             width: ${PANEL_WIDTH}px;
           }
@@ -1558,6 +1558,12 @@
             min-height: 0;
             overflow: auto;
             padding: 8px 10px 10px;
+            scrollbar-width: none;
+          }
+          .body::-webkit-scrollbar {
+            display: none;
+            height: 0;
+            width: 0;
           }
           .panel.collapsed {
             border-radius: 999px;
@@ -1566,9 +1572,12 @@
             height: auto !important;
             min-height: 0;
             min-width: 0;
+            overflow: hidden;
             width: auto !important;
           }
           .panel.collapsed .header {
+            background: transparent;
+            border-bottom: 0;
             gap: 0;
             padding: 5px 9px;
           }
