@@ -33,6 +33,8 @@
 
   const DEFAULT_SETTINGS = Object.freeze({
     enabled: true,
+    showSuspected: false,
+    panelCollapsed: false,
     whitelist: [],
     position: "bottom-right",
     panelWidth: PANEL_DEFAULT_WIDTH,
@@ -938,6 +940,8 @@
     const saved = readStorage(STORAGE_KEY, DEFAULT_SETTINGS);
     return {
       enabled: saved?.enabled !== false,
+      showSuspected: saved?.showSuspected === true,
+      panelCollapsed: saved?.panelCollapsed === true,
       whitelist: Array.isArray(saved?.whitelist)
         ? [...new Set(saved.whitelist.map(String).filter(Boolean))]
         : [],
@@ -950,6 +954,8 @@
   function saveSettings(settings) {
     writeStorage(STORAGE_KEY, {
       enabled: settings.enabled !== false,
+      showSuspected: settings.showSuspected === true,
+      panelCollapsed: settings.panelCollapsed === true,
       whitelist: [...new Set(settings.whitelist.map(String).filter(Boolean))],
       position: normalizePanelPosition(settings.position),
       panelWidth: normalizePanelWidth(settings.panelWidth),
@@ -967,7 +973,6 @@
     const state = {
       settings,
       revealAll: false,
-      revealedKeys: new Set(),
       hiddenCount: 0,
       foldedCount: 0,
       currentUrl: location.href,
@@ -1270,12 +1275,69 @@
       };
     }
 
+    function injectVisibilityStyle(root) {
+      if (root.querySelector("style[data-bacf-visibility]")) {
+        return;
+      }
+      const style = document.createElement("style");
+      style.dataset.bacfVisibility = "true";
+      style.textContent = `
+        :host([data-bacf-visible="false"]) {
+          display: none !important;
+        }
+      `;
+      root.insertBefore(style, root.firstChild);
+    }
+
+    function ensureInlineStatus(threadHost) {
+      const renderer = threadHost.shadowRoot?.querySelector("bili-comment-renderer");
+      const userInfo = renderer?.shadowRoot?.querySelector("bili-comment-user-info");
+      const userRoot = userInfo?.shadowRoot;
+      if (!userRoot) {
+        return null;
+      }
+
+      if (!userRoot.querySelector("style[data-bacf-inline-style]")) {
+        const style = document.createElement("style");
+        style.dataset.bacfInlineStyle = "true";
+        style.textContent = `
+          .bacf-inline-status {
+            align-items: center;
+            border-radius: 999px;
+            display: none;
+            font: 500 10px/16px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            margin-left: 6px;
+            padding: 0 5px;
+            vertical-align: middle;
+            white-space: nowrap;
+          }
+          .bacf-inline-status[data-kind="hide"] {
+            background: var(--bacf-inline-filter-bg, #ffe8ef);
+            color: var(--bacf-inline-filter-fg, #b3486c);
+          }
+          .bacf-inline-status[data-kind="fold"] {
+            background: var(--bacf-inline-suspect-bg, #fff1d8);
+            color: var(--bacf-inline-suspect-fg, #8a5a00);
+          }
+        `;
+        userRoot.insertBefore(style, userRoot.firstChild);
+      }
+
+      let status = userRoot.querySelector(".bacf-inline-status");
+      if (!status) {
+        status = document.createElement("span");
+        status.className = "bacf-inline-status";
+        const info = userRoot.querySelector("#info") || userRoot;
+        info.appendChild(status);
+      }
+      return status;
+    }
+
     function scanPage() {
       ensurePanel();
       if (state.currentUrl !== location.href) {
         state.currentUrl = location.href;
         state.revealAll = false;
-        state.revealedKeys.clear();
         state.hiddenCount = 0;
         state.foldedCount = 0;
       }
@@ -1307,18 +1369,28 @@
           continue;
         }
         const threadHost = result.host;
-        const chrome = ensureThreadChrome(threadHost);
-        if (!threadHost || !chrome) {
+        if (!threadHost?.shadowRoot) {
           continue;
         }
-        const manualReveal = state.revealedKeys.has(result.key);
-        const reveal =
-          state.revealAll || manualReveal || result.whitelisted || result.decision === "show";
+        const visible =
+          result.decision === "show" ||
+          (result.decision === "hide" && state.revealAll) ||
+          (result.decision === "fold" && state.settings.showSuspected);
+        injectVisibilityStyle(threadHost.shadowRoot);
         threadHost.setAttribute("data-bacf-decision", result.decision);
-        threadHost.setAttribute("data-bacf-reveal", String(Boolean(reveal)));
-        threadHost.setAttribute("data-bacf-key", result.key);
-        threadHost.setAttribute("data-bacf-uid", result.uid || "");
+        threadHost.setAttribute("data-bacf-visible", String(Boolean(visible)));
         threadHost.setAttribute("data-bacf-theme", pageTheme);
+        if (pageTheme === "dark") {
+          threadHost.style.setProperty("--bacf-inline-filter-bg", "#4a2734");
+          threadHost.style.setProperty("--bacf-inline-filter-fg", "#ff9db8");
+          threadHost.style.setProperty("--bacf-inline-suspect-bg", "#3d3422");
+          threadHost.style.setProperty("--bacf-inline-suspect-fg", "#f0c36b");
+        } else {
+          threadHost.style.setProperty("--bacf-inline-filter-bg", "#ffe8ef");
+          threadHost.style.setProperty("--bacf-inline-filter-fg", "#b3486c");
+          threadHost.style.setProperty("--bacf-inline-suspect-bg", "#fff1d8");
+          threadHost.style.setProperty("--bacf-inline-suspect-fg", "#8a5a00");
+        }
 
         if (result.decision === "hide") {
           state.hiddenCount += 1;
@@ -1326,22 +1398,19 @@
           state.foldedCount += 1;
         }
 
-        if (chrome.placeholderText && chrome.badgeText) {
-          if (result.decision === "show") {
-            chrome.placeholderText.textContent = "";
-            chrome.placeholderText.title = "";
-            chrome.badgeText.textContent = "";
-            chrome.badgeText.title = "";
+        const status = ensureInlineStatus(threadHost);
+        if (status) {
+          const hasStatus = result.decision !== "show";
+          if (hasStatus) {
+            status.dataset.kind = result.decision;
+            status.textContent = result.decision === "hide" ? "已过滤" : "疑似";
+            status.title = result.reasons.join("；");
           } else {
-            const placeholderLabel =
-              result.decision === "fold" ? "疑似 Agent 评论" : "Agent 评论已隐藏";
-            const badgeLabel = result.decision === "hide" ? "已隐藏" : "已折叠";
-            const reasonText = result.reasons.join("；");
-            chrome.placeholderText.textContent = `${placeholderLabel} · ${result.score} 分`;
-            chrome.placeholderText.title = reasonText;
-            chrome.badgeText.textContent = `${badgeLabel} · ${result.score} 分`;
-            chrome.badgeText.title = reasonText;
+            status.removeAttribute("data-kind");
+            status.textContent = "";
+            status.title = "";
           }
+          status.style.display = hasStatus && visible ? "inline-flex" : "none";
         }
       }
 
@@ -1616,6 +1685,9 @@
                 aria-expanded="false"
               >设置</button>
             </div>
+            <div class="row">
+              <label><input type="checkbox" data-action="show-suspected"> 显示疑似项</label>
+            </div>
             <div class="settings">
               <a
                 class="project-link"
@@ -1648,6 +1720,7 @@
         revealButton: root.querySelector('[data-action="reveal"]'),
         collapseButton: root.querySelector('[data-action="collapse"]'),
         enabledInput: root.querySelector('[data-action="enabled"]'),
+        showSuspectedInput: root.querySelector('[data-action="show-suspected"]'),
         settings: root.querySelector(".settings"),
         settingsButton: root.querySelector('[data-action="settings"]'),
         positionSelect: root.querySelector('[data-action="position"]'),
@@ -1660,13 +1733,17 @@
       let settingsOpen = false;
       let resizeState = null;
 
-      function setCollapsed(nextCollapsed) {
+      function setCollapsed(nextCollapsed, persist = true) {
         collapsed = Boolean(nextCollapsed);
+        state.settings.panelCollapsed = collapsed;
         elements.panel.classList.toggle("collapsed", collapsed);
         elements.panel.setAttribute("role", collapsed ? "button" : "region");
         elements.panel.setAttribute("aria-expanded", String(!collapsed));
         elements.panel.tabIndex = collapsed ? 0 : -1;
         elements.collapseButton.textContent = collapsed ? "展开" : "收起";
+        if (persist) {
+          saveSettings(state.settings);
+        }
       }
 
       function setSettingsOpen(nextOpen) {
@@ -1694,10 +1771,11 @@
           const total = state.hiddenCount + state.foldedCount;
           elements.titleCount.textContent = total ? ` ${total}` : "";
           elements.status.textContent = total
-            ? `隐藏 ${state.hiddenCount} · 折叠 ${state.foldedCount}`
+            ? `隐藏 ${state.hiddenCount} · 疑似 ${state.foldedCount}`
             : "没有匹配到过滤项";
           elements.revealButton.textContent = state.revealAll ? "只看正常" : "显示过滤项";
           elements.enabledInput.checked = state.settings.enabled;
+          elements.showSuspectedInput.checked = state.settings.showSuspected;
           elements.positionSelect.value = normalizePanelPosition(state.settings.position);
         },
       };
@@ -1724,6 +1802,11 @@
       });
       elements.enabledInput.addEventListener("change", () => {
         state.settings.enabled = elements.enabledInput.checked;
+        saveSettings(state.settings);
+        scanPage();
+      });
+      elements.showSuspectedInput.addEventListener("change", () => {
+        state.settings.showSuspected = elements.showSuspectedInput.checked;
         saveSettings(state.settings);
         scanPage();
       });
@@ -1804,7 +1887,7 @@
       elements.resizer.addEventListener("pointerup", finishResize);
       elements.resizer.addEventListener("pointercancel", finishResize);
 
-      setCollapsed(false);
+      setCollapsed(Boolean(state.settings.panelCollapsed), false);
       api.render();
       host.__bacfApi = api;
       return api;

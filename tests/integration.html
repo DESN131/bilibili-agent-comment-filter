@@ -44,8 +44,10 @@
         const user = document.createElement("bili-comment-user-info");
         const userRoot = user.attachShadow({ mode: "open" });
         userRoot.innerHTML = `
-          <div id="user-name"><a href="//space.bilibili.com/${uid}">${name}</a></div>
-          <div id="user-level"><img src="//example.test/level_${level}.svg"></div>
+          <div id="info" style="align-items: center; display: flex; gap: 4px;">
+            <div id="user-name"><a href="//space.bilibili.com/${uid}">${name}</a></div>
+            <div id="user-level"><img src="//example.test/level_${level}.svg"></div>
+          </div>
         `;
 
         const rich = document.createElement("bili-rich-text");

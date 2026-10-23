@@ -9,6 +9,7 @@ const {
   normalizePanelWidth,
   normalizePanelHeight,
   parseColorLuminance,
+  DEFAULT_SETTINGS,
 } = require("../bilibili-agent-comment-filter.user.js");
 
 const CONTEXT_A = {
@@ -247,5 +248,11 @@ test("clamps persisted panel dimensions", () => {
   assert.equal(normalizePanelHeight(240), 240);
   assert.equal(normalizePanelHeight(20), 92);
   assert.equal(normalizePanelHeight(null), null);
+});
+
+test("uses compact panel defaults and hides suspected comments by default", () => {
+  assert.equal(DEFAULT_SETTINGS.panelCollapsed, false);
+  assert.equal(DEFAULT_SETTINGS.showSuspected, false);
+  assert.equal(DEFAULT_SETTINGS.panelWidth, 220);
 });
 
