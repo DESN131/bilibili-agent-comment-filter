@@ -1473,6 +1473,7 @@
             box-shadow: var(--bacf-shadow);
             box-sizing: border-box;
             color: var(--bacf-panel-text);
+            container-type: inline-size;
             display: flex;
             flex-direction: column;
             font: 12px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -1495,11 +1496,18 @@
           }
           .header {
             align-items: center;
+            background: var(--bacf-control-bg);
+            border-bottom: 1px solid var(--bacf-panel-border);
             display: flex;
             flex: 0 0 auto;
             gap: 10px;
             justify-content: space-between;
             padding: 10px 12px;
+          }
+          .header-actions {
+            align-items: center;
+            display: flex;
+            gap: 4px;
           }
           .title {
             font-size: 13px;
@@ -1515,18 +1523,48 @@
             font-variant-numeric: tabular-nums;
             margin-left: 6px;
           }
-          .toggle, .button, .small-button {
+          .button, .small-button {
             background: var(--bacf-control-bg);
             border: 1px solid var(--bacf-control-border);
             border-radius: 5px;
             color: var(--bacf-panel-text);
             cursor: pointer;
             font: inherit;
+            max-width: 100%;
+            min-width: 0;
+            overflow: hidden;
             padding: 5px 9px;
+            text-overflow: ellipsis;
+            white-space: nowrap;
           }
-          .toggle:hover, .button:hover, .small-button:hover {
+          .button:hover, .small-button:hover {
             border-color: #fb7299;
             background: var(--bacf-control-hover);
+          }
+          .icon-button {
+            align-items: center;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 50%;
+            color: var(--bacf-panel-muted);
+            cursor: pointer;
+            display: inline-flex;
+            flex: 0 0 auto;
+            height: 24px;
+            justify-content: center;
+            padding: 0;
+            text-decoration: none;
+            width: 24px;
+          }
+          .icon-button:hover {
+            background: var(--bacf-control-hover);
+            border-color: var(--bacf-control-border);
+            color: #fb7299;
+          }
+          .icon-button svg {
+            fill: currentColor;
+            height: 14px;
+            width: 14px;
           }
           .body {
             align-content: start;
@@ -1555,6 +1593,9 @@
           .panel.collapsed .toggle,
           .panel.collapsed .resizer {
             display: none !important;
+          }
+          .panel.collapsed .header-actions {
+            display: none;
           }
           .panel.collapsed .collapsed-label {
             display: inline;
@@ -1644,12 +1685,39 @@
             font-size: 11px;
           }
           .project-link {
-            color: #fb7299;
-            font-size: 11px;
-            text-decoration: none;
+            color: var(--bacf-panel-muted);
           }
-          .project-link:hover {
-            text-decoration: underline;
+          @container (max-width: 230px) {
+            .header {
+              gap: 4px;
+              padding: 8px 9px;
+            }
+            .title {
+              font-size: 12px;
+            }
+            .header-actions {
+              gap: 0;
+            }
+            .icon-button {
+              height: 22px;
+              width: 22px;
+            }
+            .body {
+              gap: 6px;
+              padding: 8px 9px 10px;
+            }
+            .row {
+              align-items: stretch;
+              flex-direction: column;
+            }
+            .row > .button,
+            .row > .small-button,
+            .row > button {
+              width: 100%;
+            }
+            .status {
+              font-size: 11px;
+            }
           }
           @media (max-width: 480px) {
             .panel {
@@ -1669,7 +1737,31 @@
               <span class="collapsed-label">已过滤</span>
               <span class="count">0</span>
             </div>
-            <button class="toggle" type="button" data-action="collapse" aria-label="收起面板">收起</button>
+            <div class="header-actions">
+              <a
+                class="icon-button project-link"
+                href="${PROJECT_URL}"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="打开 GitHub 项目"
+                title="GitHub 项目"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.1c-3.3.7-4-1.6-4-1.6-.6-1.5-1.4-1.9-1.4-1.9-1.1-.8.1-.8.1-.8 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3Z"/>
+                </svg>
+              </a>
+              <button
+                class="icon-button toggle"
+                type="button"
+                data-action="collapse"
+                aria-label="收起面板"
+                title="收起面板"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M7.4 14.6 12 10l4.6 4.6-1.4 1.4-3.2-3.2-3.2 3.2z"/>
+                </svg>
+              </button>
+            </div>
           </div>
           <div class="body">
             <div class="row">
@@ -1689,12 +1781,6 @@
               <label><input type="checkbox" data-action="show-suspected"> 显示疑似项</label>
             </div>
             <div class="settings">
-              <a
-                class="project-link"
-                href="${PROJECT_URL}"
-                target="_blank"
-                rel="noopener noreferrer"
-              >GitHub · bilibili-agent-comment-filter</a>
               <div class="row">
                 <span class="hint">面板位置</span>
                 <select data-action="position">
@@ -1740,7 +1826,8 @@
         elements.panel.setAttribute("role", collapsed ? "button" : "region");
         elements.panel.setAttribute("aria-expanded", String(!collapsed));
         elements.panel.tabIndex = collapsed ? 0 : -1;
-        elements.collapseButton.textContent = collapsed ? "展开" : "收起";
+        elements.collapseButton.setAttribute("aria-label", collapsed ? "展开面板" : "收起面板");
+        elements.collapseButton.title = collapsed ? "展开面板" : "收起面板";
         if (persist) {
           saveSettings(state.settings);
         }
